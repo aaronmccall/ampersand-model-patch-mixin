@@ -202,6 +202,13 @@ module.exports = function (BaseModel, config) {
                 expect(instance._ops).to.not.exist;
                 done();
             });
+            it('triggers a patcher:op-count event with the current _ops.length', function (done) {
+                instance.on('patcher:op-count', function (model, count) {
+                    expect(count).to.equal(model._ops.length);
+                    done();
+                });
+                instance._queueOp('add', '/foo', 'bar', 'c123');
+            });
         });
         describe('_queueModelAdd', function () {
             var instance;
