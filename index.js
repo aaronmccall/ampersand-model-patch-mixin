@@ -49,9 +49,9 @@ module.exports = function (_super, protoProps) {
     };
 
     _.defaults(config, {
-        originalAttribute: '_original',
-        childAttribute: '_children',
-        collectionAttribute: '_collections'
+        originalProperty: '_original',
+        modelProperty: '_children',
+        collectionProperty: '_collections'
     });
     log('config:', config);
     var mixinProps = {
@@ -77,7 +77,7 @@ module.exports = function (_super, protoProps) {
                 addOp.value = model.toJSON();
                 return;
             }
-            var index = indexById(this[config.originalAttribute][root], model.id);
+            var index = indexById(this[config.originalProperty][root], model.id);
             // and queue a replace op for each changed attribute
             _.each(model.changedAttributes(), function (val, key) {
                 this._queueOp('replace', makePath(root, index, key), val, model.cid);
@@ -93,17 +93,17 @@ module.exports = function (_super, protoProps) {
             }
             // If not new AND bootstrapped
             if (_.isObject(attrs) && !_.isEmpty(attrs) && attrs !== this) {
-                log('setting %s to', config.originalAttribute, attrs);
-                this[config.originalAttribute] = attrs;
+                log('setting %s to', config.originalProperty, attrs);
+                this[config.originalProperty] = attrs;
             }
             if (this._patcherInitialized) return;
             // If we've already initialized before, we don't want to re-add
             // the add/change/remove/destroy watchers
             this._patcherInitialized = true;
-            if (this[config.collectionAttribute]) {
+            if (this[config.collectionProperty]) {
                 log('initializing collection watching');
                 // For every child collection:
-                _.each(this[config.collectionAttribute], function (x, name) {
+                _.each(this[config.collectionProperty], function (x, name) {
                     // 1. Watch for added members and queue an add op for them.
                     this.listenTo(this[name], 'add', _.bind(this._queueModelAdd, this, makePath(name, '-')));
                     // 2. Watch for changes to member models,
@@ -115,14 +115,14 @@ module.exports = function (_super, protoProps) {
                         if (prevOps.length) this._ops = _.difference(this._ops, prevOps);
                         // For new models just return
                         if (model.isNew()) return;
-                        var index = indexById(this[config.originalAttribute][name], model.id);
+                        var index = indexById(this[config.originalProperty][name], model.id);
                         this._queueOp('remove', makePath(name, index), model.cid);
                     });
                 }, this);
             }
-            if (this[config.childAttribute]) {
+            if (this[config.modelProperty]) {
                 log('initializing children watching');
-                _.each(this[config.childAttribute], function (x, name) {
+                _.each(this[config.modelProperty], function (x, name) {
                     var model = this[name];
                     if (model.isNew()) {
                         this._queueModelAdd(makePath(name), model);
@@ -174,7 +174,7 @@ module.exports = function (_super, protoProps) {
 
         parse: function (response, options) {
             var parsed = _super.prototype.parse.call(this, response, options);
-            if (options && options.parse === true) this[config.originalAttribute] = parsed;
+            if (parsed && options && options.parse === true) this[config.originalProperty] = parsed;
             return parsed;
         },
         // We need to override the built-in save to accomodate
@@ -218,11 +218,12 @@ module.exports = function (_super, protoProps) {
             this._blockSave = true;
         }
     };
+
     if (!_super.prototype.serialize) {
         mixinProps.toJSON = function () {
             var res = _super.prototype.toJSON.apply(this, arguments);
-            var keys = _.keys(this[config.childAttribute])
-                        .concat(_.keys(this[config.collectionAttribute]));
+            var keys = _.keys(this[config.modelProperty])
+                        .concat(_.keys(this[config.collectionProperty]));
             _.each(keys, function (name) {
                 res[name] = this[name].toJSON();
             }, this);
@@ -242,7 +243,7 @@ module.exports = function (_super, protoProps) {
     }
     internals.mixinProps = mixinProps;
     internals.config = config;
-    return _.extend({}, mixinProps, protoProps);
+    return _.extend({}, mixinProps, protoProps, {_patcherConfig: config});
 };
 
 var internals = module.exports._internals = {
