@@ -158,7 +158,8 @@ module.exports = function (_super, protoProps) {
                 }, this);
             });
             if (config.autoSave) {
-                this.listenTo('patcher:op-count', function (model, opCount) {
+                log('adding autoSave handler', config.autoSave);
+                this.listenTo(this, 'patcher:op-count', function (model, opCount) {
                     var saveType = typeof config.autoSave;
                     var doSave = false;
                     if (saveType === 'function') {

@@ -12,7 +12,7 @@ module.exports = function (BaseModel, config) {
     var it = lab.test;
     var afterEach = lab.afterEach;
     var beforeEach = lab.beforeEach;
-    var MyModel = BaseModel.extend(patcherMixin(BaseModel, {debug: config.debug}));
+    var MyModel = BaseModel.extend(patcherMixin(BaseModel, {_patcherConfig: { debug: config.debug }}));
 
     describe(config.name + ': methods', function () {
         describe('initPatcher', function () {
@@ -208,6 +208,15 @@ module.exports = function (BaseModel, config) {
                     done();
                 });
                 instance._queueOp('add', '/foo', 'bar', 'c123');
+            });
+            it('calls autoSave test function if configured', function (done) {
+                var autoSave = sinon.spy();
+                var instance = new (BaseModel.extend(patcherMixin(BaseModel, {_patcherConfig: {autoSave: autoSave}})))(testData());
+                instance._queueOp('add', '/foo', 'bar', 'c123');
+                expect(instance._ops.length).to.equal(1);
+                expect(autoSave.calledOnce).to.equal(true);
+                expect(autoSave.firstCall.args[1]).to.equal(instance._ops.length);
+                done();
             });
         });
         describe('_queueModelAdd', function () {
