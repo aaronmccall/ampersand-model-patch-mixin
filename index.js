@@ -157,6 +157,19 @@ module.exports = function (_super, protoProps) {
                     this._queueOp('replace', makePath(key), val, self.cid);
                 }, this);
             });
+            if (config.autoSave) {
+                this.listenTo('patcher:op-count', function (model, opCount) {
+                    var saveType = typeof config.autoSave;
+                    var doSave = false;
+                    if (saveType === 'function') {
+                        doSave = config.autoSave.call(this, model, opCount);
+                    }
+                    if (saveType === 'number') {
+                        doSave = opCount >= config.autoSave;
+                    }
+                    if (doSave) this.save();
+                });
+            }
         },
 
         parse: function (response, options) {
