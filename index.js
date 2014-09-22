@@ -240,8 +240,8 @@ module.exports = function (_super, protoProps) {
         _.each(mixinProps, function (prop, name) {
             if (typeof prop === 'function') {
                 mixinProps[name] = function () {
-                    internals.log('[Function %s]: %j', name, arguments);
-                    prop.apply(this, arguments);
+                    internals.log('[Function %s]:', name, arguments);
+                    return prop.apply(this, arguments);
                 };
                 mixinProps[name]._original = prop;
             }
