@@ -233,6 +233,14 @@ module.exports = function (BaseModel, config) {
                 expect(instance._ops[0].value).to.eql(shoeModel.toJSON());
                 done();
             });
+            it('aborts if model is not new', function (done) {
+                var shoeModel = new MyModel.prototype._collections.shoes.prototype.model({id: 123});
+                var qA = sinon.spy(instance, '_queueOp');
+                instance._queueModelAdd('/foo', shoeModel);
+                expect(instance._ops).to.not.exist;
+                expect(qA.called).to.equal(false);
+                done();
+            });
         });
         describe('_changeCollectionModel', function () {
             var instance;
