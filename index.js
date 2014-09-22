@@ -175,8 +175,12 @@ module.exports = function (_super, protoProps) {
         },
 
         parse: function (response, options) {
+            options = options || {};
             var parsed = _super.prototype.parse.call(this, response, options);
-            if (parsed && options && options.parse === true) this[config.originalProperty] = parsed;
+            if (parsed && options && options.parse === true && !options._patcherParsed) {
+                this[config.originalProperty] = parsed;
+                options._patcherParsed = true;
+            }
             return parsed;
         },
         // We need to override the built-in save to accomodate
