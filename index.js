@@ -68,6 +68,7 @@ module.exports = function (_super, protoProps) {
             this.trigger('patcher:op-count', this, ops.length);
         },
         _queueModelAdd: function (path, model) {
+            if (!model.isNew()) return;
             this._queueOp('add', path, model.toJSON(), model.cid);
         },
         _changeCollectionModel: function (root, model) {
@@ -85,9 +86,9 @@ module.exports = function (_super, protoProps) {
 
         },
         initPatcher: function (attrs) {
-            // No need to queue ops if root model is new
-            if (this.isNew()) {
-                // Re-run after first save
+            // No need to queue ops if root model is new or only id is populated
+            if (this.isNew() || _.isEqual(attrs || this.attributes, {id: this.id})) {
+                // Re-run after first save or first sync if only attr is id
                 this.listenToOnce(this, 'sync', this.initPatcher);
                 return;
             }
