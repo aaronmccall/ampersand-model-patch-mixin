@@ -224,7 +224,7 @@ module.exports = function (_super, protoProps) {
         }
     };
 
-    if (!_super.prototype.serialize) {
+    if (!_super.prototype.serialize && config.overrideToJSON !== false) {
         mixinProps.toJSON = function () {
             var res = _super.prototype.toJSON.apply(this, arguments);
             var keys = _.keys(this[config.modelProperty])
