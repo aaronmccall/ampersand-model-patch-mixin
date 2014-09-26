@@ -38,9 +38,8 @@ var opTemplates = {
     replace: opPathValue
 };
 
-var config;
 module.exports = function (_super, protoProps) {
-    config = (protoProps && protoProps._patcherConfig) || {};
+    var config = (protoProps && protoProps._patcherConfig) || {};
 
     var log = internals.log = function () {
         if (config.debug) {
