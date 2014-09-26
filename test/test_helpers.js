@@ -80,6 +80,8 @@ describe('patch-mixin helpers', function () {
     });
 
     it('config.debug adds call logging to every mixin method', function (done) {
+        var oldLog = console.log;
+        console.log = sinon.spy();
         patcherMixin({ prototype: {} }, { _patcherConfig: { debug: true } });
         var log = sinon.spy(patcherMixin._internals, 'log');
         var props = patcherMixin._internals.mixinProps;
@@ -103,6 +105,7 @@ describe('patch-mixin helpers', function () {
             expect(log.firstCall.args[1]).to.equal(prop);
         });
         patcherMixin._internals.log.restore();
+        console.log = oldLog;
         done();
     });
 

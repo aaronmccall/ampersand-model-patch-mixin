@@ -1,5 +1,6 @@
 /*jshint eqnull: true */
 var _ = require('underscore');
+var kisslog = require('kisslog');
 
 // Find index of array member  that passes test
 function smartIndexOf(array, test) {
@@ -41,11 +42,7 @@ var opTemplates = {
 module.exports = function (_super, protoProps) {
     var config = (protoProps && protoProps._patcherConfig) || {};
 
-    var log = internals.log = function () {
-        if (config.debug) {
-            console.log.apply(console, arguments);
-        }
-    };
+    var log = internals.log = kisslog(config);
 
     _.defaults(config, {
         originalProperty: '_original',
