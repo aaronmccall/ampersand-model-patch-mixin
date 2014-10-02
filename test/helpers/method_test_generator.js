@@ -218,6 +218,14 @@ module.exports = function (BaseModel, config) {
                 expect(autoSave.firstCall.args[1]).to.equal(instance._ops.length);
                 done();
             });
+            it('calls save when op count reaches autoSave count', function (done) {
+                var instance = new (BaseModel.extend(patcherMixin(BaseModel, {_patcherConfig: {autoSave: 1}})))(testData());
+                var autoSave = sinon.stub(instance, 'save');
+                instance._queueOp('add', '/foo', 'bar', 'c123');
+                expect(instance._ops.length).to.equal(1);
+                expect(autoSave.calledOnce).to.equal(true);
+                done();
+            });
         });
         describe('_queueModelAdd', function () {
             var instance;
@@ -291,6 +299,35 @@ module.exports = function (BaseModel, config) {
                 expect(shoesSpy.called).to.equal(true);
                 expect(carSpy.called).to.equal(true);
                 expect(json).to.eql(_.extend(_.clone(instance.attributes), {shoes: instance.shoes.toJSON()}, {car: instance.car.toJSON()}));
+                done();
+            });
+        });
+        describe('_modelIndex', function () {
+            it('finds the index of a model in _original by id', function (done) {
+                var data = testData();
+                data.shoes.push({id: 6, style: 'Flip-flop', color: 'Rainbow'});
+                var instance = new MyModel(data);
+                var index = instance._modelIndex(instance.shoes.last(), 'shoes');
+                expect(index).to.equal(1);
+                expect(instance.shoes.at(index)).to.equal(instance.shoes.get(6));
+                done();
+            });
+            it('returns -1 if no match found', function (done) {
+                var data = testData();
+                var instance = new MyModel(data);
+                instance.shoes.add({id: 6, style: 'Flip-flop', color: 'Rainbow'});
+                var index = instance._modelIndex(instance.shoes.last(), 'shoes');
+                expect(index).to.equal(-1);
+                done();
+            });
+            it('finds a model\'s parent via _collections when collection name not given', function (done) {
+                var data = testData();
+                data.shoes.push({id: 6, style: 'Flip-flop', color: 'Rainbow'});
+                var instance = new MyModel(data);
+                instance._collections.foo = function () { this.on = sinon.spy(); };
+                var index = instance._modelIndex(instance.shoes.last());
+                expect(index).to.equal(1);
+                expect(instance.shoes.at(index)).to.equal(instance.shoes.get(6));
                 done();
             });
         });

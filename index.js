@@ -51,6 +51,17 @@ module.exports = function (_super, protoProps) {
     });
     log('config:', config);
     var mixinProps = {
+        _modelIndex: function (model, collectionName) {
+            log('_modelIndex called with %o, %s', model, collectionName);
+            if (!model) return -1;
+            if (model.isNew()) return log('model is new'), -1;
+            if (!collectionName) {
+                _(this[config.collectionProperty]).chain().keys().each(function (name) {
+                    if (this[name] === model.collection) collectionName = name;
+                }, this);
+            }
+            return indexById(this[config.originalProperty][collectionName], model.id);
+        },
         _queueOp: function (op, path, value, cid) {
             if (!opTemplates[op]) return;
             var operation = _.object(opTemplates[op], _.toArray(arguments));
@@ -74,7 +85,7 @@ module.exports = function (_super, protoProps) {
                 addOp.value = model.toJSON();
                 return;
             }
-            var index = indexById(this[config.originalProperty][root], model.id);
+            var index = this._modelIndex(model, root);
             // and queue a replace op for each changed attribute
             _.each(model.changedAttributes(), function (val, key) {
                 this._queueOp('replace', makePath(root, index, key), val, model.cid);
@@ -112,7 +123,7 @@ module.exports = function (_super, protoProps) {
                         if (prevOps.length) this._ops = _.difference(this._ops, prevOps);
                         // For new models just return
                         if (model.isNew()) return;
-                        var index = indexById(this[config.originalProperty][name], model.id);
+                        var index = this._modelIndex(model, name);
                         this._queueOp('remove', makePath(name, index), model.cid);
                     });
                 }, this);
