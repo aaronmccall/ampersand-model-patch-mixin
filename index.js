@@ -62,6 +62,16 @@ module.exports = function (_super, protoProps) {
             }
             return indexById(this[config.originalProperty][collectionName], model.id);
         },
+        _getOps: function () {
+            return this._ops || this._setOps([]);
+        },
+        _setOps: function (ops) {
+            this._ops = ops;
+            return this._ops;
+        },
+        _resetOps: function () {
+            this._setOps([]);
+        },
         _queueOp: function (op, path, value, cid) {
             if (!opTemplates[op]) return;
             var operation = _.object(opTemplates[op], _.toArray(arguments));
@@ -180,7 +190,6 @@ module.exports = function (_super, protoProps) {
                 });
             }
         },
-
         parse: function (response, options) {
             options = options || {};
             var parsed = _super.prototype.parse.call(this, response, options);
