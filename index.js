@@ -199,6 +199,12 @@ module.exports = function (_super, protoProps) {
             }
             return parsed;
         },
+        _getOriginal: function () {
+            return _.omit(this[config.originalProperty], config.ignoreProps);
+        },
+        _setOriginal: function (data) {
+            this[config.originalProperty] = data;
+        },
         // We need to override the built-in save to accomodate
         // sending json-patch compliant edit payloads
         save: function (key, val, options) {
@@ -247,7 +253,7 @@ module.exports = function (_super, protoProps) {
             var keys = _.keys(this[config.modelProperty])
                         .concat(_.keys(this[config.collectionProperty]));
             _.each(keys, function (name) {
-                res[name] = this[name].toJSON();
+                if (this[name]) res[name] = this[name].toJSON();
             }, this);
             return res;
         };
