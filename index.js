@@ -193,6 +193,7 @@ module.exports = function (_super, protoProps) {
         parse: function (response, options) {
             options = options || {};
             var parsed = _super.prototype.parse.call(this, response, options);
+            if (!this.isNew() && parsed.id !== this.id) return;
             if (parsed && options && options.parse === true && !options._patcherParsed) {
                 this[config.originalProperty] = parsed;
                 options._patcherParsed = true;
@@ -262,7 +263,7 @@ module.exports = function (_super, protoProps) {
         _.each(mixinProps, function (prop, name) {
             if (typeof prop === 'function') {
                 mixinProps[name] = function () {
-                    internals.log('[Function %s]:', name, arguments);
+                    internals.log('[Function %s]: %o', name, arguments);
                     return prop.apply(this, arguments);
                 };
                 mixinProps[name]._original = prop;
