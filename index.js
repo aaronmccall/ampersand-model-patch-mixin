@@ -103,8 +103,10 @@ module.exports = function (_super, protoProps) {
 
         },
         initPatcher: function (attrs) {
+            attrs = attrs || this.attributes;
             // No need to queue ops if root model is new or only id is populated
-            if (this.isNew() || _.isEqual(attrs || this.attributes, {id: this.id})) {
+            if (this.isNew() || _.isEqual(attrs, {id: this.id})) {
+                log('new or only id');
                 // Re-run after first save or first sync if only attr is id
                 this.listenToOnce(this, 'sync', this.initPatcher);
                 return;
@@ -193,7 +195,6 @@ module.exports = function (_super, protoProps) {
         parse: function (response, options) {
             options = options || {};
             var parsed = _super.prototype.parse.call(this, response, options);
-            if (!this.isNew() && parsed.id !== this.id) return;
             if (parsed && options && options.parse === true && !options._patcherParsed) {
                 this[config.originalProperty] = parsed;
                 options._patcherParsed = true;
@@ -233,7 +234,7 @@ module.exports = function (_super, protoProps) {
             var success = options.success;
             options.success = function (resp) {
                 model._blockSave = false;
-                model._ops = null;
+                if (model._resetOps) model._resetOps();
                 if (success) success(model, resp, options);
                 model.trigger('sync', model, resp, options);
             };
