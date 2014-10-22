@@ -1,6 +1,6 @@
 {
   "name": "ampersand-model-patch-mixin",
-  "version": "1.5.1",
+  "version": "2.0.0",
   "description": "\"Sync implementation for Ampersand and Backbone that implements the RFC 6902 json+patch spec on updates.\"",
   "main": "index.js",
   "directories": {
