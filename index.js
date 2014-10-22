@@ -51,6 +51,7 @@ module.exports = function (_super, protoProps) {
     });
     log('config:', config);
     var mixinProps = {
+        _patcherConfig: config,
         _modelIndex: function (model, collectionName) {
             log('_modelIndex called with %o, %s', model, collectionName);
             if (!model) return -1;
@@ -85,13 +86,13 @@ module.exports = function (_super, protoProps) {
             this.trigger('patcher:op-count', this, ops.length);
         },
         _queueModelAdd: function (path, model) {
-            if (!model.isNew()) return;
+            if (!model.isNew() && !model.collection) return;
             this._queueOp('add', path, model.toJSON(), model.cid);
         },
         _changeCollectionModel: function (root, model) {
-            // If the model is new, just update its add payload and return
-            if (model.isNew()) {
-                var addOp = _.findWhere(this._ops, {cid: model.cid});
+            // If the model is an add, just update its add payload and return
+            var addOp = _.findWhere(this._ops, {cid: model.cid, op: 'add'});
+            if (addOp) {
                 addOp.value = model.toJSON();
                 return;
             }
@@ -273,7 +274,7 @@ module.exports = function (_super, protoProps) {
     }
     internals.mixinProps = mixinProps;
     internals.config = config;
-    return _.extend({}, mixinProps, protoProps, {_patcherConfig: config});
+    return _.extend({}, mixinProps, protoProps);
 };
 
 var internals = module.exports._internals = {
