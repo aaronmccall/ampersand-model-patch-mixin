@@ -52,57 +52,6 @@ module.exports = function (_super, protoProps) {
     log('config:', config);
     var mixinProps = {
         _patcherConfig: config,
-        _modelIndex: function (model, collectionName) {
-            log('_modelIndex called with %o, %s', model, collectionName);
-            if (!model) return -1;
-            if (model.isNew()) return log('model is new'), -1;
-            if (!collectionName) {
-                _(this[config.collectionProperty]).chain().keys().each(function (name) {
-                    if (this[name] === model.collection) collectionName = name;
-                }, this);
-            }
-            return indexById(this[config.originalProperty][collectionName], model.id);
-        },
-        _getOps: function () {
-            return this._ops || this._setOps([]);
-        },
-        _setOps: function (ops) {
-            this._ops = ops;
-            return this._ops;
-        },
-        _resetOps: function () {
-            this._setOps([]);
-        },
-        _queueOp: function (op, path, value, cid) {
-            if (!opTemplates[op]) return;
-            var operation = _.object(opTemplates[op], _.toArray(arguments));
-            var ops = this._ops || (this._ops = []);
-            // If we already have a replace op for this path, just update it
-            if (op === 'replace') {
-                var dupe = _.findWhere(ops, { op: op, path: path });
-                if (dupe) return _.extend(dupe, operation);
-            }
-            ops.push(operation);
-            this.trigger('patcher:op-count', this, ops.length);
-        },
-        _queueModelAdd: function (path, model) {
-            if (!model.isNew() && !model.collection) return;
-            this._queueOp('add', path, model.toJSON(), model.cid);
-        },
-        _changeCollectionModel: function (root, model) {
-            // If the model is an add, just update its add payload and return
-            var addOp = _.findWhere(this._ops, {cid: model.cid, op: 'add'});
-            if (addOp) {
-                addOp.value = model.toJSON();
-                return;
-            }
-            var index = this._modelIndex(model, root);
-            // and queue a replace op for each changed attribute
-            _.each(model.changedAttributes(), function (val, key) {
-                this._queueOp('replace', makePath(root, index, key), val, model.cid);
-            }, this);
-
-        },
         initPatcher: function (attrs) {
             attrs = attrs || this.attributes;
             // No need to queue ops if root model is new or only id is populated
@@ -151,7 +100,7 @@ module.exports = function (_super, protoProps) {
                     // 1. Watch for changes to child models,
                     this.listenTo(model, 'change', function (model) {
                         // and queue a replace op for each changed attribute
-                        _.each(model.changedAttributes(), function (val, key) {
+                        _.each(this._getChanged(model), function (val, key) {
                             if (model.isNew()) {
                                 var addOp = _.findWhere(this._ops, {cid: model.cid});
                                 if (addOp) {
@@ -173,7 +122,7 @@ module.exports = function (_super, protoProps) {
                 }, this);
             }
             this.listenTo(this, 'change', function (self) {
-                var changed = this.changedAttributes();
+                var changed = this._getChanged(self);
                 _.each(changed, function (val, key) {
                     this._queueOp('replace', makePath(key), val, self.cid);
                 }, this);
@@ -201,12 +150,6 @@ module.exports = function (_super, protoProps) {
                 options._patcherParsed = true;
             }
             return parsed;
-        },
-        _getOriginal: function () {
-            return _.omit(this[config.originalProperty], config.ignoreProps);
-        },
-        _setOriginal: function (data) {
-            this[config.originalProperty] = data;
         },
         // We need to override the built-in save to accomodate
         // sending json-patch compliant edit payloads
@@ -247,6 +190,78 @@ module.exports = function (_super, protoProps) {
             };
             this.sync('patch', this, options);
             this._blockSave = true;
+        },
+        _modelIndex: function (model, collectionName) {
+            log('_modelIndex called with %o, %s', model, collectionName);
+            if (!model) return -1;
+            if (model.isNew()) return log('model is new'), -1;
+            if (!collectionName) {
+                _(this[config.collectionProperty]).chain().keys().each(function (name) {
+                    if (this[name] === model.collection) collectionName = name;
+                }, this);
+            }
+            return indexById(this[config.originalProperty][collectionName], model.id);
+        },
+        _getOps: function () {
+            return this._ops || this._setOps([]);
+        },
+        _setOps: function (ops) {
+            this._ops = ops;
+            return this._ops;
+        },
+        _resetOps: function () {
+            this._setOps([]);
+        },
+        _queueOp: function (op, path, value, cid) {
+            if (!opTemplates[op]) return;
+            var operation = _.object(opTemplates[op], _.toArray(arguments));
+            var ops = this._ops || (this._ops = []);
+            // If we already have a replace op for this path, just update it
+            if (op === 'replace') {
+                var dupe = _.findWhere(ops, { op: op, path: path });
+                if (dupe) return _.extend(dupe, operation);
+            }
+            ops.push(operation);
+            this.trigger('patcher:op-count', this, ops.length);
+        },
+        _queueModelAdd: function (path, model) {
+            if (!model.isNew() && !model.collection) return;
+            this._queueOp('add', path, model.toJSON(), model.cid);
+        },
+        _changeCollectionModel: function (root, model) {
+            // If the model is an add, just update its add payload and return
+            var addOp = _.findWhere(this._ops, {cid: model.cid, op: 'add'});
+            if (addOp) {
+                addOp.value = model.toJSON();
+                return;
+            }
+            var index = this._modelIndex(model, root);
+            // and queue a replace op for each changed attribute
+            _.each(this._getChanged(model), function (val, key) {
+                this._queueOp('replace', makePath(root, index, key), val, model.cid);
+            }, this);
+
+        },
+        _getOriginal: function () {
+            return _.omit(this[config.originalProperty], config.ignoreProps);
+        },
+        _setOriginal: function (data) {
+            this[config.originalProperty] = data;
+        },
+        _getChanged: function (model) {
+            if (!model) return;
+            if (!model.isState) return model.changedAttributes();
+            return this._omitSession(model, model.changedAttributes());
+        },
+        _omitSession: function (model, props) {
+            if (!model || !props) return;
+            var payload = {};
+            _.each(props, function (prop, key) {
+                var def = model._definition[key] || {};
+                if (def.session) return;
+                if (!def.session) payload[key] = prop;
+            });
+            return payload;
         }
     };
 

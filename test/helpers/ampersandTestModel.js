@@ -14,6 +14,9 @@ var TestModel = Model.extend({
         name: ['string', true],
         age: 'number'
     },
+    session: {
+        foo: 'string'
+    },
     sync: sync,
     children: {
         car: Model.extend({
