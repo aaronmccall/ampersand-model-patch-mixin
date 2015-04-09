@@ -1,5 +1,6 @@
 /*jshint expr:true*/
-var _ = require('underscore');
+var random = require('lodash.random');
+var range = require('lodash.range');
 var Lab = require('lab');
 var sinon = require('sinon');
 var patcherMixin = require('../');
@@ -46,8 +47,8 @@ describe('patch-mixin helpers', function () {
         }));
 
         it('creates a path with as many segments as its non-empty arguments', wrapDone(function () {
-            var ranges = _.range(2).map(function () {
-                return _.range(_.random(1, 10));
+            var ranges = range(2).map(function () {
+                return range(random(1, 10));
             });
             expect(ranges.length).to.equal(2);
             ranges.forEach(function (range) {

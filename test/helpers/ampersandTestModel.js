@@ -1,6 +1,6 @@
 var Model = require('ampersand-model');
-var underscoreMixin = require('ampersand-collection-underscore-mixin');
-var Collection = require('ampersand-collection');
+var lodashMixin = require('ampersand-collection-lodash-mixin');
+var Collection = require('ampersand-collection').extend(lodashMixin);
 var sinon = require('sinon');
 var sync = sinon.stub(Model.prototype, 'sync');
 sync.yieldsToAsync('success');
@@ -30,7 +30,7 @@ var TestModel = Model.extend({
         })
     },
     collections: {
-        shoes: Collection.extend(underscoreMixin, {
+        shoes: Collection.extend({
             model: Model.extend({
                 props: {
                     id: 'number',
