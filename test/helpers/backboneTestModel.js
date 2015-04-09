@@ -1,4 +1,4 @@
-var _ = require('underscore');
+var each = require('lodash.foreach');
 var Backbone = require('backbone');
 var Model = Backbone.Model;
 var Collection = Backbone.Collection;
@@ -35,12 +35,12 @@ var TestModel = Model.extend({
         })
     },
     _initChildren: function (attrs) {
-        _.each(this._children, function (childConstructor, name) {
+        each(this._children, function (childConstructor, name) {
             this[name] = new childConstructor(attrs[name] || {});
         }.bind(this));
     },
     _initCollections: function (attrs) {
-        _.each(this._collections, function (collectionConstructor, name) {
+        each(this._collections, function (collectionConstructor, name) {
             this[name] = new collectionConstructor(attrs[name] || []);
         }.bind(this));
     }

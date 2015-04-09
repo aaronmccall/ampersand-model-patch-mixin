@@ -1,5 +1,9 @@
 /*jshint expr:true*/
-var _ = require('underscore');
+var clone = require('lodash.clone');
+var each = require('lodash.foreach');
+var extend = require('lodash.assign');
+var omit = require('lodash.omit');
+ 
 var Lab = require('lab');
 var sinon = require('sinon');
 var patcherMixin = require('../../');
@@ -47,14 +51,14 @@ module.exports = function (BaseModel, config) {
             });
             it('sets change and destroy listeners on child models', function (done) {
                 var instance = new MyModel(testData());
-                _.each(instance._children, function (x, name) {
+                each(instance._children, function (x, name) {
                     expect(instance[name]._events).to.include.keys('change', 'destroy');
                 });
                 done();
             });
             it('sets add, change, and remove listeners on child collections', function (done) {
                 var instance = new MyModel(testData());
-                _.each(instance._collections, function (x, name) {
+                each(instance._collections, function (x, name) {
                     expect(instance[name]._events).to.include.keys('change', 'add', 'remove');
                 });
                 done();
@@ -140,7 +144,7 @@ module.exports = function (BaseModel, config) {
                 instance.save();
                 var args = MyModel.prototype.sync.lastCall.args;
                 expect(args[2].attrs).to.exist.and.eql(ops.map(function (op) {
-                    return _.omit(op, 'cid');
+                    return omit(op, 'cid');
                 }));
                 done();
             });
@@ -204,6 +208,8 @@ module.exports = function (BaseModel, config) {
             });
             it('triggers a patcher:op-count event with the current _ops.length', function (done) {
                 instance.on('patcher:op-count', function (model, count) {
+                    console.log('op-count handler args: model: %s, count: %d', model.cid, count);
+                    expect(model).to.equal(instance);
                     expect(count).to.equal(model._ops.length);
                     done();
                 });
@@ -298,7 +304,7 @@ module.exports = function (BaseModel, config) {
                 var json = instance.toJSON();
                 expect(shoesSpy.called).to.equal(true);
                 expect(carSpy.called).to.equal(true);
-                expect(json).to.eql(_.extend(_.clone(instance.attributes), {shoes: instance.shoes.toJSON()}, {car: instance.car.toJSON()}));
+                expect(json).to.eql(extend(clone(instance.attributes), {shoes: instance.shoes.toJSON()}, {car: instance.car.toJSON()}));
                 done();
             });
         });
