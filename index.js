@@ -1,5 +1,4 @@
 /*jshint eqnull: true */
-var bind = require('lodash.bind');
 var defaults = require('lodash.defaults');
 var difference = require('lodash.difference');
 var each = require('lodash.foreach');
@@ -9,17 +8,15 @@ var isEmpty = require('lodash.isempty');
 var isEqual = require('lodash.isequal');
 var isObject = require('lodash.isobject');
 var keys = require('lodash.keys');
-var map = require('lodash.map');
 var object = require('lodash.zipobject');
 var omit = require('lodash.omit');
-var partial = require('lodash.partial');
 var toArray = require('lodash.toarray');
-var where = require('lodash.where');
 var kisslog = require('kisslog');
 
 var collectionHandlers = require('./lib/collections');
 var modelHandlers = require('./lib/models');
 var utils = require('./lib/utils');
+var methodOverrides = require('./lib/method_overrides');
 
 var opPathValue = ['op', 'path', 'value', 'cid'];
 var opTemplates = {
@@ -38,6 +35,7 @@ module.exports = function (_super, protoProps) {
         modelProperty: '_children',
         collectionProperty: '_collections'
     });
+    
     log('config:', config);
     var mixinProps = {
         _patcherConfig: config,
@@ -87,60 +85,9 @@ module.exports = function (_super, protoProps) {
                 });
             }
         },
-        parse: function (response, options) {
-            options = options || {};
-            var parsed = _super.prototype.parse.call(this, response, options);
-            if (parsed && options && options.parse === true && !options._patcherParsed) {
-                this[config.originalProperty] = parsed;
-                options._patcherParsed = true;
-            }
-            return parsed;
-        },
-        // We need to override the built-in save to accomodate
-        // sending json-patch compliant edit payloads
-        save: function (key, val, options) {
-            // If root model is new, we save normally
-            if (this.isNew()) {
-                return _super.prototype.save.apply(this, arguments);
-            }
-            if (this._blockSave) return;
-            // Mimic the barebones of Backbone.Model.prototype.save's argument handling
-            var attrs;
-            if (key == null || typeof key === 'object') {
-                attrs = key;
-                options = val;
-            } else {
-                (attrs = {})[key] = val;
-            }
-            // If attrs have been passed, but are invalid, abort.
-            if (attrs && !this.set(attrs, options)) return false;
-            // Abort if there are no ops to send
-            if (!this._ops || !this._ops.length) return;
-            if (!options) options = {};
-            options.attrs = map(this._ops, function (op) {
-                return omit(op, 'cid');
-            });
-            var model = this;
-            // Since we've bypassed the usual save process, we need to trigger 'sync' ourselves
-            var success = options.success;
-            options.success = function (resp) {
-                model._blockSave = false;
-                if (model._resetOps) model._resetOps();
-                if (success) success(model, resp, options);
-                model.trigger('sync', model, resp, options);
-            };
-            // In case of error, we need to unblock saving.
-            var error = options.error;
-            options.error = function (xhr, status, msg) {
-                model._blockSave = false;
-                if (error) error(xhr, status, msg);
-            };
-            this.sync('patch', this, options);
-            this._blockSave = true;
-        },
         _modelIndex: function (model, collectionName) {
             log('_modelIndex called with %o, %s', model, collectionName);
-            if (!model) return -1;
+            if (!model || !this[config.originalProperty]) return log('no model or no %s', config.originalProperty), -1;
             if (model.isNew()) return log('model is new'), -1;
             if (!collectionName) {
                 each(keys(this[config.collectionProperty]), function (name) {
@@ -167,9 +114,15 @@ module.exports = function (_super, protoProps) {
             if (op === 'replace' || op === 'add') {
                 var dupe = findWhere(ops, { op: op, path: path, cid: cid });
                 if (dupe) return extend(dupe, operation);
+            } else if (op === 'remove') {
+                var add = findWhere(ops, { op: 'add', path: path, cid: cid });
+                if (add) {
+                    this._setOps(difference(ops, [add]));
+                    this.trigger('patcher:op-removed', this, 1, add);
+                }
             }
             ops.push(operation);
-            this.trigger('patcher:op-count', this, ops.length);
+            this.trigger('patcher:op-count', this, ops.length, operation);
         },
         _queueModelAdd: function (path, model) {
             if (!model.isNew() && !model.collection) return;
@@ -179,7 +132,7 @@ module.exports = function (_super, protoProps) {
             return omit(this[config.originalProperty], config.ignoreProps);
         },
         _setOriginal: function (data) {
-            this[config.originalProperty] = data;
+            return this[config.originalProperty] = data;
         },
         _getChanged: function (model) {
             if (!model) return;
@@ -197,20 +150,18 @@ module.exports = function (_super, protoProps) {
             return payload;
         }
     };
-
-    if (!_super.prototype.serialize && config.overrideToJSON !== false) {
-        mixinProps.toJSON = function () {
-            var res = _super.prototype.toJSON.apply(this, arguments);
-            var childKeys = keys(this[config.modelProperty])
-                        .concat(keys(this[config.collectionProperty]));
-            each(childKeys, function (name) {
-                if (this[name] && this[name].toJSON) return res[name] = this[name].toJSON();
-                console.log('%s has no toJSON:', name);
-            }, this);
-            return res;
-        };
+    var methodOverrideKeys = ['parse', 'save'];
+    if (_super.prototype._getEventBubblingHandler) {
+        methodOverrideKeys.push('_getEventBubblingHandler', '_initCollections');
     }
+    if (!_super.prototype.serialize && config.overrideToJSON !== false) {
+        methodOverrideKeys.push('toJSON');
+    }
+
+    // Compose our final mixinProps payload
+    extend(mixinProps, collectionHandlers, modelHandlers, methodOverrides.getMethods(methodOverrideKeys, _super));
     if (config.debug) {
+        // Add debug logging wrapper
         each(mixinProps, function (prop, name) {
             if (typeof prop === 'function') {
                 mixinProps[name] = function () {
