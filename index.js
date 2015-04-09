@@ -17,6 +17,8 @@ var toArray = require('lodash.toarray');
 var where = require('lodash.where');
 var kisslog = require('kisslog');
 
+var collectionHandlers = require('./lib/collections');
+var modelHandlers = require('./lib/models');
 var utils = require('./lib/utils');
 
 var opPathValue = ['op', 'path', 'value', 'cid'];
@@ -55,61 +57,14 @@ module.exports = function (_super, protoProps) {
                 log('setting %s to', config.originalProperty, attrs);
                 this[config.originalProperty] = attrs;
             }
-            if (this._patcherInitialized) return;
             // If we've already initialized before, we don't want to re-add
             // the add/change/remove/destroy watchers
+            if (this._patcherInitialized) return;
+            // If not, let's initialize them
             this._patcherInitialized = true;
-            if (this[config.collectionProperty]) {
-                log('initializing collection watching');
-                // For every child collection:
-                each(this[config.collectionProperty], function (x, name) {
-                    // 1. Watch for added members and queue an add op for them.
-                    this.listenTo(this[name], 'add', bind(this._queueModelAdd, this, makePath(name, '-')));
-                    // 2. Watch for changes to member models,
-                    this.listenTo(this[name], 'change', partial(this._changeCollectionModel, name));
-                    // 3. Watch for removed members and queue a remove op for them.
-                    this.listenTo(this[name], 'remove', function (model) {
-                        // Unqueue previous ops
-                        var prevOps = where(this._ops, {cid: model.cid});
-                        if (prevOps.length) this._ops = difference(this._ops, prevOps);
-                        // For new models just return
-                        if (model.isNew()) return;
-                        var index = this._modelIndex(model, name);
-                        this._queueOp('remove', makePath(name, index), model.cid);
-                    });
-                }, this);
-            }
-            if (this[config.modelProperty]) {
-                log('initializing children watching');
-                each(this[config.modelProperty], function (x, name) {
-                    var model = this[name];
-                    if (model.isNew()) {
-                        this._queueModelAdd(makePath(name), model);
-                    }
-                    // 1. Watch for changes to child models,
-                    this.listenTo(model, 'change', function (model) {
-                        // and queue a replace op for each changed attribute
-                        each(this._getChanged(model), function (val, key) {
-                            if (model.isNew()) {
-                                var addOp = findWhere(this._ops, {cid: model.cid});
-                                if (addOp) {
-                                    addOp.value = model.toJSON();
-                                    return;
-                                }
-                            }
-                            this._queueOp('replace', makePath(name, key), val, model.cid);
-                        }, this);
-                    });
-                    // 2. Watch for removed members and queue a remove op for them.
-                    this.listenTo(model, 'destroy', function (model) {
-                        // Throw away any edits to this model since we're destroying it.
-                        var addOp = where(this._ops, {cid: model.cid});
-                        if (addOp.length) this._ops = difference(this._ops, addOp);
-                        if (model.isNew()) return;
-                        this._queueOp('remove', makePath(name), model.cid);
-                    });
-                }, this);
-            }
+            this._initCollectionWatchers();
+            this._initChildWatchers();
+
             this.listenTo(this, 'change', function (self) {
                 var changed = this._getChanged(self);
                 each(changed, function (val, key) {
@@ -219,20 +174,6 @@ module.exports = function (_super, protoProps) {
         _queueModelAdd: function (path, model) {
             if (!model.isNew() && !model.collection) return;
             this._queueOp('add', path, model.toJSON(), model.cid);
-        },
-        _changeCollectionModel: function (root, model) {
-            // If the model is an add, just update its add payload and return
-            var addOp = findWhere(this._ops, {cid: model.cid, op: 'add'});
-            if (addOp) {
-                addOp.value = model.toJSON();
-                return;
-            }
-            var index = this._modelIndex(model, root);
-            // and queue a replace op for each changed attribute
-            each(this._getChanged(model), function (val, key) {
-                this._queueOp('replace', makePath(root, index, key), val, model.cid);
-            }, this);
-
         },
         _getOriginal: function () {
             return omit(this[config.originalProperty], config.ignoreProps);
