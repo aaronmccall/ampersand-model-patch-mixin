@@ -17,40 +17,7 @@ var toArray = require('lodash.toarray');
 var where = require('lodash.where');
 var kisslog = require('kisslog');
 
-// Find index of array member  that passes test
-function smartIndexOf(array, test) {
-    var index = -1;
-    if (!array || !test) return index;
-    var length = array.length;
-    if (!length) return index;
-    while (++index < length) {
-        if (test(array[index], index, array)) return index;
-    }
-    return -1;
-}
-
-// Returns index of object with matching id property
-function indexById(array, id) {
-    if (!array) return -1;
-    return smartIndexOf(array, function (obj) {
-        return obj.id === id;
-    });
-}
-
-// Creates PATCH paths from arguments
-// e.g., makePath('foo', 0, 'bar') => '/foo/0/bar'
-function makePath() {
-    var path = [''];
-    for (var i=0,l=arguments.length,arg,argType; i<l; i++) {
-        arg = arguments[i];
-        argType = typeof arg;
-        if (argType === 'string' || (argType === 'number' && !isNaN(arg))) {
-            arg = String(arg);
-            if (arg.length) path.push(arg.replace(/^\/|\/$/g, ''));
-        }
-    }
-    return path.join('/').replace(/\/$/, '');
-}
+var utils = require('./lib/utils');
 
 var opPathValue = ['op', 'path', 'value', 'cid'];
 var opTemplates = {
@@ -146,9 +113,10 @@ module.exports = function (_super, protoProps) {
             this.listenTo(this, 'change', function (self) {
                 var changed = this._getChanged(self);
                 each(changed, function (val, key) {
-                    this._queueOp('replace', makePath(key), val, self.cid);
+                    this._queueOp('replace', utils.makePath(key), val, self.cid);
                 }, this);
             });
+
             if (config.autoSave) {
                 log('adding autoSave handler', config.autoSave);
                 this.listenTo(this, 'patcher:op-count', function (model, opCount) {
@@ -224,7 +192,7 @@ module.exports = function (_super, protoProps) {
                     if (this[name] === model.collection) collectionName = name;
                 }, this);
             }
-            return indexById(this[config.originalProperty][collectionName], model.id);
+            return utils.indexById(this[config.originalProperty][collectionName], model.id);
         },
         _getOps: function () {
             return this._ops || this._setOps([]);
@@ -318,8 +286,8 @@ module.exports = function (_super, protoProps) {
 };
 
 var internals = module.exports._internals = {
-    smartIndexOf: smartIndexOf,
-    indexById: indexById,
-    makePath: makePath,
+    smartIndexOf: utils.smartIndexOf,
+    indexById: utils.indexById,
+    makePath: utils.makePath,
     opTemplates: opTemplates
 };
