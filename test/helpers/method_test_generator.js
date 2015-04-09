@@ -208,7 +208,6 @@ module.exports = function (BaseModel, config) {
             });
             it('triggers a patcher:op-count event with the current _ops.length', function (done) {
                 instance.on('patcher:op-count', function (model, count) {
-                    console.log('op-count handler args: model: %s, count: %d', model.cid, count);
                     expect(model).to.equal(instance);
                     expect(count).to.equal(model._ops.length);
                     done();

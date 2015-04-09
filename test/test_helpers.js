@@ -88,14 +88,12 @@ describe('patch-mixin helpers', function () {
         var props = patcherMixin._internals.mixinProps;
         var throwers = [
             '_queueModelAdd',
-            '_changeCollectionModel',
             'initPatcher',
             'parse',
             'save',
             'toJSON'
         ];
         Object.keys(props).forEach(function (prop) {
-            log.reset();
             if (typeof props[prop] !== 'function') return;
             if (throwers.indexOf(prop) === -1) {
                 props[prop]();
@@ -104,6 +102,7 @@ describe('patch-mixin helpers', function () {
             }
             expect(log.called).to.equal(true);
             expect(log.firstCall.args[1]).to.equal(prop);
+            log.reset();
         });
         patcherMixin._internals.log.restore();
         console.log = oldLog;
